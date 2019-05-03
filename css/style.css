@@ -9,7 +9,7 @@ body {
   display: flex;
 }
 
-#info {
+header {
   position: absolute;
   padding: 20px;
 }
@@ -46,6 +46,34 @@ body {
   background-repeat: no-repeat;
 }
 
+.tree {
+  background-position: -96px 0;
+}
+.spot {
+  background-position: 0 0;
+}
+.bucket {
+  background-position: -32px 0;
+  z-index: 1;
+}
+
+.boxman {
+  background-position-y: -96px;
+  z-index: 2;
+}
+.up {
+  background-position-x: 0px;
+}
+.right {
+  background-position-x: -32px;
+}
+.down {
+  background-position-x: -64px;
+}
+.left {
+  background-position-x: -96px;
+}
+
 #game-result {
   position: absolute;
   left: 50%;
@@ -71,38 +99,6 @@ body {
   66% {background-position-y: -64px}
   100% {background-position-y: -96px}
 }
-
-.tree {
-  background-position: -96px 0;
-}
-
-.spot {
-  background-position: 0 0;
-}
-
-.bucket {
-  background-position: -32px 0;
-  z-index: 1;
-}
-
-.boxman {
-  background-position-y: -96px;
-  z-index: 2;
-}
-
-.up {
-  background-position-x: 0px;
-}
-.right {
-  background-position-x: -32px;
-}
-.down {
-  background-position-x: -64px;
-}
-.left {
-  background-position-x: -96px;
-}
-
 .walk {
   animation: walk step-end .2s forwards;
 }

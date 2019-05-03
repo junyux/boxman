@@ -1,18 +1,16 @@
-const BOUND_X = 15;
-const BOUND_Y = 10;
 const ITEM_WIDTH = 32;
-const MAX_LEVEL = 113;
 
 class BoxGame {
-  constructor({container, onload, onLevelComplete}) {
+  constructor({container, levels, onload, onLevelComplete}) {
     this.container = container;
+    this.levels = levels;
     this.onload = onload;
     this.onLevelComplete = onLevelComplete;
   }
 
   moveTo(item, x, y) {
-    item.dataset.x = x;
-    item.dataset.y = y;
+    item.x = x;
+    item.y = y;
     item.style.left = `${x * ITEM_WIDTH}px`;
     item.style.top = `${y * ITEM_WIDTH}px`;
   }
@@ -33,55 +31,52 @@ class BoxGame {
     return this.container.querySelector('.boxman');
   }
 
-  getXY(item) {
-    return [Number(item.dataset.x), Number(item.dataset.y)];
-  }
-
   getItem(x, y) {
     const items = this.container.children;
     for(let i = 0; i < items.length; i++) {
       const item = items[i];
-      if(x === Number(item.dataset.x) && y === Number(item.dataset.y) && item.className !== 'spot') {
+      if(x === item.x && y === item.y && item.className !== 'spot') {
         return item;
       }
     }
     return null;
   }
 
-  getSpot(x, y) {
-    const items = this.container.querySelectorAll('.spot');
-    for(let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if(x === Number(item.dataset.x) && y === Number(item.dataset.y)) {
-        return item;
-      }
+  moveItem(item, direction = 'right') {
+    let from,
+      to,
+      prop;
+    if(direction === 'left' || direction === 'right') {
+      from = item.x;
+      to = direction === 'left' ? from - 1 : from + 1;
+      prop = 'left';
+    } else {
+      from = item.y;
+      to = direction === 'up' ? from - 1 : from + 1;
+      prop = 'top';
     }
-    return null;
-  }
 
-  isOutOfBound(x, y) {
-    return x < 0 || y < 0 || x >= BOUND_X || y >= BOUND_Y;
-  }
-
-  isEmpty(x, y) {
-    return !this.isOutOfBound(x, y) && !this.getItem(x, y);
-  }
-
-  isAtSpot(bucket) {
-    const spots = this.container.querySelectorAll('.spot');
-    for(let i = 0; i < spots.length; i++) {
-      const spot = spots[i];
-      if(bucket.dataset.x === spot.dataset.x && bucket.dataset.y === spot.dataset.y) {
-        return true;
-      }
-    }
-    return false;
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const that = this;
+      requestAnimationFrame(function update() {
+        const p = Math.min(1.0, (Date.now() - startTime) / 200);
+        item.style[prop] = `${ITEM_WIDTH * ((1 - p) * from + p * to)}px`;
+        if(p < 1.0) {
+          requestAnimationFrame(update);
+        } else {
+          if(prop === 'left') that.moveTo(item, to, item.y);
+          else that.moveTo(item, item.x, to);
+          resolve();
+        }
+      });
+    });
   }
 
   async move(direction = 'right') {
     const boxman = this.boxman;
-    const x = Number(boxman.dataset.x),
-      y = Number(boxman.dataset.y);
+    const x = boxman.x,
+      y = boxman.y;
 
     let item = null;
 
@@ -100,10 +95,10 @@ class BoxGame {
       await this.moveItem(boxman, direction);
       boxman.className = `boxman ${direction}`;
     } else if(item.className === 'bucket'
-        && (direction === 'left' && this.isEmpty(x - 2, y)
-        || direction === 'right' && this.isEmpty(x + 2, y)
-        || direction === 'up' && this.isEmpty(x, y - 2)
-        || direction === 'down' && this.isEmpty(x, y + 2))) {
+        && (direction === 'left' && !this.getItem(x - 2, y)
+        || direction === 'right' && !this.getItem(x + 2, y)
+        || direction === 'up' && !this.getItem(x, y - 2)
+        || direction === 'down' && !this.getItem(x, y + 2))) {
       boxman.className = `boxman ${direction} walk`;
       await Promise.all([
         this.moveItem(boxman, direction),
@@ -115,35 +110,15 @@ class BoxGame {
     }
   }
 
-  moveItem(item, direction = 'right') {
-    let from,
-      to,
-      prop;
-    if(direction === 'left' || direction === 'right') {
-      from = Number(item.dataset.x);
-      to = direction === 'left' ? from - 1 : from + 1;
-      prop = 'left';
-    } else {
-      from = Number(item.dataset.y);
-      to = direction === 'up' ? from - 1 : from + 1;
-      prop = 'top';
+  isAtSpot(bucket) {
+    const spots = this.container.querySelectorAll('.spot');
+    for(let i = 0; i < spots.length; i++) {
+      const spot = spots[i];
+      if(bucket.x === spot.x && bucket.y === spot.y) {
+        return true;
+      }
     }
-
-    return new Promise((resolve) => {
-      const startTime = Date.now();
-      const that = this;
-      requestAnimationFrame(function update() {
-        const p = Math.min(1.0, (Date.now() - startTime) / 200);
-        item.style[prop] = `${ITEM_WIDTH * ((1 - p) * from + p * to)}px`;
-        if(p < 1.0) {
-          requestAnimationFrame(update);
-        } else {
-          if(prop === 'left') that.moveTo(item, to, item.dataset.y);
-          else that.moveTo(item, item.dataset.x, to);
-          resolve();
-        }
-      });
-    });
+    return false;
   }
 
   isWin() {
@@ -154,51 +129,49 @@ class BoxGame {
 
   waitCommand() {
     return new Promise((resolve) => {
-      if(this._command) window.removeEventListener('keydown', this._command);
+      if(this._command) {
+        window.removeEventListener('keydown', this._command);
+      }
       this._command = (event) => {
-        const keyCode = event.keyCode;
-        switch (keyCode) {
-          case 37:
-            resolve('left');
-            break;
-          case 38:
-            resolve('up');
-            break;
-          case 39:
-            resolve('right');
-            break;
-          case 40:
-            resolve('down');
-            break;
-          default:
-            resolve(null);
-            break;
+        window.removeEventListener('keydown', this._command);
+        const keyCode = event.code.slice(5).toLowerCase();
+        if(keyCode === 'left'
+          || keyCode === 'up'
+          || keyCode === 'right'
+          || keyCode === 'down') {
+          resolve(keyCode);
+        } else {
+          resolve(null);
         }
       };
-      window.addEventListener('keydown', this._command, {once: true});
+      window.addEventListener('keydown', this._command);
     });
   }
 
-  clear() {
+  initLevel(level) {
     this.container.innerHTML = '';
-  }
 
-  init({trees, spots, buckets, man}) {
-    this.clear();
-    trees.forEach(([x, y]) => this.addItem('tree', x, y));
-    spots.forEach(([x, y]) => this.addItem('spot', x, y));
-    buckets.forEach(([x, y]) => this.addItem('bucket', x, y));
-    this.addItem('boxman', ...man);
+    const {trees, spots, buckets, man} = this.levels[level - 1];
+
+    function parseData(dataStr) {
+      return dataStr.split('|').map(o => o.split(',').map(Number));
+    }
+
+    parseData(trees).forEach(([x, y]) => this.addItem('tree', x, y));
+    parseData(spots).forEach(([x, y]) => this.addItem('spot', x, y));
+    parseData(buckets).forEach(([x, y]) => this.addItem('bucket', x, y));
+
+    this.addItem('boxman', ...man.split(',').map(Number));
   }
 
   async load(level) {
-    if(level <= 0) level = MAX_LEVEL;
-    else if(Number.isNaN(level) || level > MAX_LEVEL) level = 1;
+    const levels = this.levels;
+
+    if(level <= 0) level = levels.length + 1;
+    else if(Number.isNaN(level) || level > levels.length) level = 1;
     this.level = level;
 
-    const {trees, spots, buckets, man} = getData(level);
-
-    this.init({trees, spots, buckets, man});
+    this.initLevel(level);
 
     if(this.onload) {
       this.onload(level);
@@ -232,7 +205,27 @@ const reset = document.getElementById('reset');
 
 const playLevel = Number(localStorage.getItem('playlevel')) || 1;
 
+const LEVELS = [
+  {
+    trees: '4,7|5,7|6,7|7,7|8,7|9,7|10,7|4,6|10,6|4,5|10,5|4,4|10,4|4,3|5,3|6,3|7,3|8,3|9,3|10,3',
+    buckets: '8,6|6,5|8,5|6,4',
+    spots: '5,6|9,6|5,4|9,4',
+    man: '7,5',
+  }, {
+    trees: '3,2|4,2|5,2|6,2|7,2|8,2|9,2|10,2|3,3|7,3|10,3|3,4|10,4|3,5|7,5|10,5|3,6|4,6|5,6|6,6|7,6|8,6|9,6|10,6',
+    buckets: '7,4',
+    spots: '9,4',
+    man: '8,4',
+  }, {
+    trees: '6,2|7,2|8,2|9,2|4,3|5,3|6,3|9,3|4,4|9,4|10,4|4,5|10,5|4,6|6,6|10,6|4,7|5,7|6,7|7,7|8,7|9,7|10,7',
+    buckets: '6,4|6,5',
+    spots: '8,4|7,6',
+    man: '5,6',
+  },
+];
+
 const app = new BoxGame({
+  levels: LEVELS,
   container: document.getElementById('boxmap'),
   onload(level) {
     currentLevel.value = level;
