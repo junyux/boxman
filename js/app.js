@@ -167,7 +167,7 @@ class BoxGame {
   async load(level) {
     const levels = this.levels;
 
-    if(level <= 0) level = levels.length + 1;
+    if(level <= 0) level = levels.length;
     else if(Number.isNaN(level) || level > levels.length) level = 1;
     this.level = level;
 
